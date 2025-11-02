@@ -5,9 +5,18 @@ const GoogleAuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Parse token from query string
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
+    // Parse token from query string or hash (HashRouter uses hash fragment)
+    const search = window.location.search;
+    let token;
+
+    if (search) {
+      const params = new URLSearchParams(search);
+      token = params.get('token');
+    } else {
+      const hash = window.location.hash.split('?')[1] || '';
+      const params = new URLSearchParams(hash);
+      token = params.get('token');
+    }
 
     if (token) {
       // Store token and redirect to app; AuthProvider will fetch user
