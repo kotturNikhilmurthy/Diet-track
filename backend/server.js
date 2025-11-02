@@ -86,6 +86,11 @@ app.use('/api/meals', mealRoutes);
 app.use('/api/foods', foodRoutes);
 app.use('/api/chat', chatRoutes);
 
+// Basic health check so cloud pings don't trigger 404s
+app.get('/', (_req, res) => {
+  res.json({ status: 'ok', message: 'Diet Track API is running' });
+});
+
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
   const buildPath = path.join(__dirname, '../frontend/build');
