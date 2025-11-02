@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const fs = require('fs');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('./models/user.model');
@@ -26,44 +27,48 @@ app.use(morgan('dev'));
 // Initialize passport for OAuth
 app.use(passport.initialize());
 
-// Configure Google OAuth strategy
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL:
-        process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
-    },
-    async (accessToken, refreshToken, profile, done) => {
-      try {
-        const email = profile.emails && profile.emails[0] && profile.emails[0].value;
-        if (!email) return done(new Error('No email found in Google profile'));
+// Configure Google OAuth strategy only when credentials exist
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL:
+          process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          const email = profile.emails && profile.emails[0] && profile.emails[0].value;
+          if (!email) return done(new Error('No email found in Google profile'));
 
-        let user = await User.findOne({ email }).select('+password');
+          let user = await User.findOne({ email }).select('+password');
 
-        if (!user) {
-          // Create a new user. Password will be hashed by pre-save hook.
-          user = new User({
-            name: profile.displayName || email.split('@')[0],
-            email,
-            password: Math.random().toString(36).slice(-12),
-            googleId: profile.id,
-          });
-          await user.save();
-        } else if (!user.googleId) {
-          user.googleId = profile.id;
-          await user.save();
+          if (!user) {
+            // Create a new user. Password will be hashed by pre-save hook.
+            user = new User({
+              name: profile.displayName || email.split('@')[0],
+              email,
+              password: Math.random().toString(36).slice(-12),
+              googleId: profile.id,
+            });
+            await user.save();
+          } else if (!user.googleId) {
+            user.googleId = profile.id;
+            await user.save();
+          }
+
+          return done(null, user);
+        } catch (err) {
+          console.error('Google OAuth error:', err);
+          return done(err, null);
         }
-
-        return done(null, user);
-      } catch (err) {
-        console.error('Google OAuth error:', err);
-        return done(err, null);
       }
-    }
-  )
-);
+    )
+  );
+} else {
+  console.warn('Google OAuth disabled: missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
+}
 
 // Database connection
 mongoose
@@ -83,12 +88,17 @@ app.use('/api/chat', chatRoutes);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  // Set static folder
-  app.use(express.static(path.join(__dirname, '../frontend/build')));
+  const buildPath = path.join(__dirname, '../frontend/build');
 
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../frontend/build', 'index.html'));
-  });
+  if (fs.existsSync(buildPath)) {
+    app.use(express.static(buildPath));
+
+    app.get('*', (req, res) => {
+      res.sendFile(path.resolve(buildPath, 'index.html'));
+    });
+  } else {
+    console.warn('Skipping static frontend serving: build folder not found');
+  }
 }
 
 // Error handling middleware
