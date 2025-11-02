@@ -71,17 +71,20 @@ router.get(
 // @access  Public
 router.get(
   '/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: process.env.FRONTEND_URL || 'http://localhost:3000/login' }),
+  passport.authenticate('google', {
+    session: false,
+    failureRedirect: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/#/login`,
+  }),
   (req, res) => {
     try {
       // req.user populated by passport strategy
       const token = generateToken(req.user._id);
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       // Redirect to frontend with token in query param
-      res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+      res.redirect(`${frontendUrl}/#/auth/callback?token=${token}`);
     } catch (err) {
       console.error('OAuth callback error:', err);
-      res.redirect(process.env.FRONTEND_URL || 'http://localhost:3000/login');
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/#/login`);
     }
   }
 );
