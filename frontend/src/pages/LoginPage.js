@@ -125,16 +125,22 @@ const LoginPage = () => {
           </div>
         </form>
         <div className="mt-4">
-          <a
-            href={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/auth/google`}
-            className="w-full inline-flex items-center justify-center btn-outline py-3 text-lg"
-            aria-label="Sign in with Google"
-          >
-            <span className="mr-3 flex items-center justify-center h-5 w-5 rounded-full bg-white text-sm font-semibold text-gray-700">
-              G
-            </span>
-            <span>Sign in with Google</span>
-          </a>
+          {(() => {
+            const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+            const authBase = apiBase.replace(/\/?api\/?$/, '');
+            return (
+              <a
+                href={`${authBase}/api/auth/google`}
+                className="w-full inline-flex items-center justify-center btn-outline py-3 text-lg"
+                aria-label="Sign in with Google"
+              >
+                <span className="mr-3 flex items-center justify-center h-5 w-5 rounded-full bg-white text-sm font-semibold text-gray-700">
+                  G
+                </span>
+                <span>Sign in with Google</span>
+              </a>
+            );
+          })()}
         </div>
 
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
