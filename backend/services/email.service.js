@@ -1,30 +1,20 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Create reusable transporter
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: false,
-    requireTLS: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-      minVersion: 'TLSv1.2',
-    },
-    connectionTimeout: 10000,
-  });
+let resendClient;
+const getResendClient = () => {
+  if (!resendClient) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not configured');
+    }
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
 };
 
 // Send diet plan email
 const sendDietPlanEmail = async (userEmail, userName, recommendations, userProfile) => {
   try {
-    const transporter = createTransporter();
-
-    await transporter.verify();
-    console.log('SMTP transporter verified for', process.env.EMAIL_USER);
+    const resend = getResendClient();
 
     // Build email HTML content
     const htmlContent = `
@@ -167,25 +157,28 @@ const sendDietPlanEmail = async (userEmail, userName, recommendations, userProfi
       </html>
     `;
 
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || 'DIET Track <noreply@diettrack.com>',
-      to: userEmail,
-      subject: `Your Personalized Diet Plan - DIET Track`,
-      html: htmlContent,
-    };
+    const fromAddress = process.env.EMAIL_FROM || 'Diet Track <onboarding@resend.dev>';
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    const { data, error: resendError } = await resend.emails.send({
+      from: fromAddress,
+      to: userEmail,
+      subject: 'Your Personalized Diet Plan - DIET Track',
+      html: htmlContent,
+    });
+
+    if (resendError) {
+      console.error('Resend API error:', resendError);
+      throw new Error(resendError.message || 'Resend API call failed');
+    }
+
+    console.log('Email sent successfully via Resend:', data?.id || 'no-id');
+    return { success: true, messageId: data?.id };
   } catch (error) {
     console.error('Error sending email:', error.message || error);
-    if (error.code) {
-      console.error('SMTP error code:', error.code);
+    if (error?.response) {
+      console.error('Resend response:', JSON.stringify(error.response, null, 2));
     }
-    if (error.response) {
-      console.error('SMTP response:', error.response);
-    }
-    return { success: false, error: error.message };
+    return { success: false, error: error.message || 'Failed to send email' };
   }
 };
 
