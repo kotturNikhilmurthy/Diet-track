@@ -3,13 +3,18 @@ const nodemailer = require('nodemailer');
 // Create reusable transporter
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: Number(process.env.EMAIL_PORT) || 587,
+    secure: false,
+    requireTLS: true,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    tls: {
+      minVersion: 'TLSv1.2',
+    },
+    connectionTimeout: 10000,
   });
 };
 
@@ -17,6 +22,9 @@ const createTransporter = () => {
 const sendDietPlanEmail = async (userEmail, userName, recommendations, userProfile) => {
   try {
     const transporter = createTransporter();
+
+    await transporter.verify();
+    console.log('SMTP transporter verified for', process.env.EMAIL_USER);
 
     // Build email HTML content
     const htmlContent = `
@@ -170,7 +178,13 @@ const sendDietPlanEmail = async (userEmail, userName, recommendations, userProfi
     console.log('Email sent successfully:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('Error sending email:', error.message || error);
+    if (error.code) {
+      console.error('SMTP error code:', error.code);
+    }
+    if (error.response) {
+      console.error('SMTP response:', error.response);
+    }
     return { success: false, error: error.message };
   }
 };
